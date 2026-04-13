@@ -37,8 +37,8 @@
         </div>
     </div>
     <script>
-        // ⚠️ 방금 복사한 새 배포 주소를 여기에 넣으세요!
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxAj9y7u9A1z-xYYoaNEnPSRmgUsPHRB12_R8-bNiLrpOPE0IXExzfckcjnHoNWr_j5Ig/exec";
+        // ⚠️ 1단계에서 복사한 '새 웹 앱 URL'을 여기에 꼭 넣으세요!
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw3tO_-YhdCQfaKiKS7qw2G7QPFyAeP8EPzd-BNEEOQitjgrXj3FvXrSpEqlr8Dzxql_w/exec";
         let currentMonth = new Date();
         let checkoutDates = [];
         let allMemos = {};
@@ -47,11 +47,9 @@
             renderCalendar(); 
             try {
                 const timestamp = Date.now();
-                // 구글 시트 데이터 가져오기
                 const memoRes = await fetch(`${WEB_APP_URL}?t=${timestamp}`);
                 allMemos = await memoRes.json();
                 
-                // 에어비앤비 일정 가져오기
                 const calRes = await fetch('/api/calendar?t=' + timestamp);
                 checkoutDates = await calRes.json();
                 
@@ -93,13 +91,30 @@
         async function saveMemo() {
             const content = document.getElementById('memo-input').value;
             const btn = document.getElementById('save-btn');
-            btn.innerText = "저장 중..."; btn.disabled = true;
+            btn.innerText = "데이터 저장 중..."; btn.disabled = true;
             try {
+                // 앱 내부 메모 주머니에 먼저 저장해서 화면 유지
                 allMemos[selectedDate] = content;
                 renderCalendar();
-                await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ date: selectedDate, content: content }) });
-                setTimeout(() => { closeModal(); btn.innerText = "저장하기"; btn.disabled = false; }, 300);
-            } catch (e) { alert("저장 실패"); btn.disabled = false; btn.innerText = "저장하기"; }
+                
+                // 구글 시트로 전송 (no-cors 모드)
+                await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify({ date: selectedDate, content: content }) 
+                });
+
+                // 성공 메시지 후 닫기
+                setTimeout(() => {
+                    closeModal();
+                    btn.innerText = "저장하기";
+                    btn.disabled = false;
+                }, 500);
+            } catch (e) {
+                alert("저장 실패");
+                btn.disabled = false;
+                btn.innerText = "저장하기";
+            }
         }
 
         function closeModal() { document.getElementById('memo-modal').classList.add('hidden'); }
