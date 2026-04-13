@@ -16,11 +16,11 @@
     <div id="app" class="max-w-md mx-auto min-h-screen pb-10">
         <div class="bg-orange-600 text-white p-10 rounded-b-[40px] shadow-lg text-center relative">
             <div class="flex justify-between items-center px-4">
-                <button onclick="changeMonth(-1)" class="p-2 active:opacity-50"><i class="fas fa-chevron-left text-2xl"></i></button>
+                <button onclick="changeMonth(-1)" class="p-2"><i class="fas fa-chevron-left text-2xl"></i></button>
                 <h2 id="month-title" class="text-3xl font-black">2026년 4월</h2>
-                <button onclick="changeMonth(1)" class="p-2 active:opacity-50"><i class="fas fa-chevron-right text-2xl"></i></button>
+                <button onclick="changeMonth(1)" class="p-2"><i class="fas fa-chevron-right text-2xl"></i></button>
             </div>
-            <p id="status-text" class="mt-2 text-orange-200 text-xs font-bold italic tracking-widest">데이터 동기화 완료</p>
+            <p id="status-text" class="mt-2 text-orange-200 text-xs font-bold italic tracking-widest text-center">동기화 완료</p>
         </div>
 
         <div class="p-6">
@@ -43,7 +43,6 @@
     </div>
 
     <script>
-        // ⚠️ 릴리님의 구글 주소를 여기에 넣어주세요 (이미 잘 작동하던 그 주소!)
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjE9WkqHaKDm9v6otP28uBYEkx8NhTEC2U1HSY3LE1VaGl7U-XGs6eCUqV08iLx8wu3Q/exec";
         
         let currentMonth = new Date();
@@ -53,7 +52,7 @@
         async function init() {
             renderCalendar(); 
             try {
-                // [동기화 강화] PC와 모바일이 서로 최신 데이터를 보도록 강제 호출
+                // [강화] t=Date.now()를 써서 브라우저가 옛날 기억을 못 쓰게 함
                 const [calRes, memoRes] = await Promise.all([
                     fetch('/api/calendar?t=' + Date.now()).then(r => r.json()),
                     fetch(WEB_APP_URL + "?t=" + Date.now()).then(r => r.json())
@@ -61,7 +60,7 @@
                 checkoutDates = calRes;
                 allMemos = memoRes;
                 renderCalendar();
-            } catch (e) { console.log("로드 오류", e); }
+            } catch (e) { console.log(e); }
         }
 
         function renderCalendar() {
@@ -73,11 +72,14 @@
             title.innerText = `${year}년 ${month + 1}월`;
             const firstDay = new Date(year, month, 1).getDay();
             const lastDate = new Date(year, month + 1, 0).getDate();
+
             for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
             for (let d = 1; d <= lastDate; d++) {
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const isCheckout = checkoutDates.includes(dateStr);
                 const memo = allMemos[dateStr];
+                
                 const dayEl = document.createElement('div');
                 dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
                 dayEl.innerHTML = `<div class="flex flex-col items-center"><span>${d}</span>${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}${memo ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}</div>`;
@@ -103,7 +105,7 @@
                 await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ date: selectedDate, content: content }) });
                 allMemos[selectedDate] = content;
                 renderCalendar();
-                setTimeout(() => { closeModal(); init(); }, 500); // 저장 후 서버 데이터 다시 한 번 확인
+                setTimeout(() => { closeModal(); init(); }, 500); 
             } catch (e) { alert("저장 실패"); } finally { btn.innerText = "저장하기"; btn.disabled = false; }
         }
 
