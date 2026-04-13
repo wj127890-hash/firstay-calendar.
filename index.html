@@ -21,7 +21,10 @@
                 <h2 id="month-title" class="text-3xl font-black">2026년 4월</h2>
                 <button onclick="changeMonth(1)" class="p-2 active:opacity-50"><i class="fas fa-chevron-right text-2xl"></i></button>
             </div>
-            <p id="status-text" class="mt-2 text-orange-200 text-xs font-bold italic tracking-widest text-center">동기화 완료</p>
+            <button onclick="init()" class="mt-4 bg-orange-500/30 px-4 py-1 rounded-full text-[10px] font-bold border border-orange-300 active:bg-orange-700">
+                <i class="fas fa-sync-alt mr-1"></i> 데이터 새로고침
+            </button>
+            <p id="status-text" class="mt-2 text-orange-200 text-[10px] font-bold italic">연동 대기 중...</p>
         </div>
 
         <div class="p-6">
@@ -51,16 +54,25 @@
         let allMemos = {};
 
         async function init() {
+            document.getElementById('status-text').innerText = "🔄 데이터를 불러오는 중...";
             renderCalendar(); 
             try {
+                // 브라우저 캐시를 완전히 무시하기 위해 ?nocache=... 파라미터 추가
+                const timestamp = Date.now();
                 const [calRes, memoRes] = await Promise.all([
-                    fetch('/api/calendar?t=' + Date.now()).then(r => r.json()),
-                    fetch(WEB_APP_URL + "?t=" + Date.now()).then(r => r.json())
+                    fetch('/api/calendar?t=' + timestamp).then(r => r.json()),
+                    fetch(`${WEB_APP_URL}?t=${timestamp}&nocache=${timestamp}`).then(r => r.json())
                 ]);
+                
                 checkoutDates = calRes;
                 allMemos = memoRes;
+                
+                document.getElementById('status-text').innerText = "✅ 최신 데이터 동기화 완료";
                 renderCalendar();
-            } catch (e) { console.log(e); }
+            } catch (e) { 
+                console.error(e);
+                document.getElementById('status-text').innerText = "⚠️ 연결 오류 (새로고침 하세요)";
+            }
         }
 
         function renderCalendar() {
@@ -81,7 +93,7 @@
                 const memo = allMemos[dateStr];
                 
                 const dayEl = document.createElement('div');
-                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
+                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer transition-all ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
                 dayEl.innerHTML = `<div class="flex flex-col items-center"><span>${d}</span>${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}${memo ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}</div>`;
                 dayEl.onclick = () => openModal(dateStr);
                 grid.appendChild(dayEl);
@@ -103,25 +115,22 @@
             btn.innerText = "저장 중..."; btn.disabled = true;
 
             try {
-                // 1. 구글 시트로 전송 (응답 안 기다림)
-                fetch(WEB_APP_URL, { 
+                // 1. 구글 시트로 전송 (no-cors 모드)
+                await fetch(WEB_APP_URL, { 
                     method: 'POST', 
                     mode: 'no-cors', 
                     body: JSON.stringify({ date: selectedDate, content: content }) 
                 });
 
-                // 2. [중요] 앱의 메모 주머니에 즉시 직접 저장! 
-                // 이 줄 덕분에 5초 뒤에 서버에서 옛날 데이터를 가져와도 덮어씌워지지 않습니다.
+                // 2. 앱 자체 메모장에 즉시 반영 (다른 기기 확인 전까지 유지)
                 allMemos[selectedDate] = content;
-                
-                // 3. 화면 즉시 갱신 (점 찍기)
                 renderCalendar();
                 
-                // 4. 모달 닫기 (이때 다시 불러오기(init)를 호출하지 않습니다!)
                 setTimeout(() => {
                     closeModal();
                     btn.innerText = "저장하기";
                     btn.disabled = false;
+                    document.getElementById('status-text').innerText = "✅ 메모가 시트에 저장됨";
                 }, 300);
 
             } catch (e) {
@@ -132,15 +141,11 @@
         }
 
         function closeModal() { document.getElementById('memo-modal').classList.add('hidden'); }
-        
-        // 달을 옮길 때만 데이터를 새로 불러오도록 설정
         function changeMonth(diff) { 
             currentMonth.setMonth(currentMonth.getMonth() + diff); 
-            renderCalendar(); 
             init(); 
         }
 
-        // 처음에만 데이터 불러오기
         init();
     </script>
 </body>
