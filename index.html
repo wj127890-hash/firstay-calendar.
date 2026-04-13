@@ -21,23 +21,22 @@
                 <h2 id="month-title" class="text-3xl font-black">2026년 4월</h2>
                 <button onclick="changeMonth(1)" class="p-2 active:opacity-50"><i class="fas fa-chevron-right text-2xl"></i></button>
             </div>
-            <p id="status-text" class="mt-2 text-orange-200 text-[10px] font-bold italic">연동 확인 중...</p>
+            <button onclick="init()" class="mt-4 bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold border border-white/30">
+                <i class="fas fa-sync-alt mr-1"></i> 데이터 다시 불러오기
+            </button>
         </div>
 
         <div class="p-6">
-            <div class="grid grid-cols-7 mb-6 text-center text-xs font-black text-gray-400">
-                <div class="text-red-500">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="text-blue-500">토</div>
-            </div>
             <div id="calendar-grid" class="grid grid-cols-7 gap-3"></div>
         </div>
 
         <div id="memo-modal" class="fixed inset-0 bg-black/70 hidden flex items-end z-50">
             <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 id="memo-date" class="text-2xl font-bold text-gray-800">날짜 메모</h3>
-                    <button onclick="closeModal()" class="text-3xl text-gray-400">&times;</button>
+                    <h3 id="memo-date" class="text-2xl font-bold">날짜 메모</h3>
+                    <button onclick="closeModal()" class="text-3xl">&times;</button>
                 </div>
-                <textarea id="memo-input" class="w-full h-48 p-5 border-2 border-orange-100 rounded-[25px] outline-none focus:border-orange-500 text-lg" placeholder="내용을 입력하세요."></textarea>
+                <textarea id="memo-input" class="w-full h-48 p-5 border-2 border-orange-100 rounded-[25px] outline-none focus:border-orange-500 text-lg"></textarea>
                 <button id="save-btn" onclick="saveMemo()" class="w-full bg-orange-600 text-white font-black py-5 rounded-[25px] mt-6 text-xl shadow-lg">저장하기</button>
             </div>
         </div>
@@ -53,20 +52,19 @@
         async function init() {
             renderCalendar(); 
             try {
-                // 1. 구글 시트에서 메모를 가져올 때 캐시를 완전히 피하기 위해 t=Date.now() 사용
-                const memoRes = await fetch(`${WEB_APP_URL}?t=${Date.now()}`);
-                allMemos = await memoRes.json();
+                // [개선 포인트] 브라우저가 옛날 데이터를 기억하지 못하게 매번 새로운 주소처럼 인식시킵니다.
+                const timestamp = new Date().getTime();
+                const memoRes = await fetch(`${WEB_APP_URL}?t=${timestamp}`);
+                const data = await memoRes.json();
                 
-                // 2. 에어비앤비 일정도 가져오기
-                const calRes = await fetch('/api/calendar?t=' + Date.now());
+                // 시트에 데이터가 여러 개일 경우, 가장 아래에 있는(최신) 것을 선택합니다.
+                allMemos = data;
+                
+                const calRes = await fetch('/api/calendar?t=' + timestamp);
                 checkoutDates = await calRes.json();
                 
-                document.getElementById('status-text').innerText = "✅ 실시간 동기화 완료";
-                renderCalendar(); // 데이터를 다 받으면 다시 그리기
-            } catch (e) { 
-                console.error("데이터 로드 실패:", e);
-                document.getElementById('status-text').innerText = "⚠️ 연동 오류 (새로고침 하세요)";
-            }
+                renderCalendar();
+            } catch (e) { console.error(e); }
         }
 
         function renderCalendar() {
@@ -87,16 +85,8 @@
                 const memo = allMemos[dateStr];
                 
                 const dayEl = document.createElement('div');
-                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer transition-all ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
-                
-                // [주황색 점 표시 로직] 메모가 있으면 점을 찍습니다.
-                dayEl.innerHTML = `
-                    <div class="flex flex-col items-center">
-                        <span>${d}</span>
-                        ${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}
-                        ${memo ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}
-                    </div>
-                `;
+                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
+                dayEl.innerHTML = `<div class="flex flex-col items-center"><span>${d}</span>${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}${memo ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}</div>`;
                 dayEl.onclick = () => openModal(dateStr);
                 grid.appendChild(dayEl);
             }
@@ -117,7 +107,7 @@
             btn.innerText = "저장 중..."; btn.disabled = true;
 
             try {
-                // 저장 버튼을 누르면 일단 앱이 그 내용을 즉시 기억하게 합니다.
+                // [개선 포인트] 저장하자마자 앱 내부에서 즉시 기억합니다. (서버 확인 전에!)
                 allMemos[selectedDate] = content;
                 renderCalendar();
 
