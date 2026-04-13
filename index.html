@@ -21,15 +21,14 @@
                 <button onclick="changeMonth(1)" class="p-2"><i class="fas fa-chevron-right text-2xl"></i></button>
             </div>
             <button onclick="init()" class="mt-4 bg-white/20 px-4 py-1.5 rounded-full text-[11px] font-bold border border-white/30 active:scale-95 transition-all">
-                <i class="fas fa-sync-alt mr-1"></i> 시트 데이터 강제 연동
+                <i class="fas fa-sync-alt mr-1"></i> 데이터 강제 연동 (새로고침)
             </button>
-            <p id="status-text" class="mt-2 text-orange-200 text-[10px] font-bold italic">연결 확인 중...</p>
         </div>
         <div class="p-6"><div id="calendar-grid" class="grid grid-cols-7 gap-3"></div></div>
         <div id="memo-modal" class="fixed inset-0 bg-black/70 hidden flex items-end z-50">
             <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 id="memo-date" class="text-2xl font-bold">날짜 메모</h3>
+                    <h3 id="memo-date" class="text-2xl font-bold text-gray-800">날짜 메모</h3>
                     <button onclick="closeModal()" class="text-3xl text-gray-400">&times;</button>
                 </div>
                 <textarea id="memo-input" class="w-full h-48 p-5 border-2 border-orange-100 rounded-[25px] outline-none focus:border-orange-500 text-lg"></textarea>
@@ -38,31 +37,26 @@
         </div>
     </div>
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxadgxe5KT0mJtTQkQyScB_NJ3-fpY8ZGJ5yDCtCSxiHgXoBI1StJm4tb9SGxkGj7NvmQ/exec";
+        // ⚠️ 방금 복사한 새 배포 주소를 여기에 넣으세요!
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxAj9y7u9A1z-xYYoaNEnPSRmgUsPHRB12_R8-bNiLrpOPE0IXExzfckcjnHoNWr_j5Ig/exec";
         let currentMonth = new Date();
         let checkoutDates = [];
         let allMemos = {};
 
         async function init() {
-            const status = document.getElementById('status-text');
-            status.innerText = "🔄 데이터를 긁어오는 중...";
             renderCalendar(); 
             try {
                 const timestamp = Date.now();
-                // 1. 구글 시트 데이터 가져오기 (매번 새 주소인 척 해서 캐시 방지)
+                // 구글 시트 데이터 가져오기
                 const memoRes = await fetch(`${WEB_APP_URL}?t=${timestamp}`);
                 allMemos = await memoRes.json();
                 
-                // 2. 에어비앤비 일정 가져오기
+                // 에어비앤비 일정 가져오기
                 const calRes = await fetch('/api/calendar?t=' + timestamp);
                 checkoutDates = await calRes.json();
                 
-                status.innerText = "✅ 실시간 동기화 완료";
                 renderCalendar(); 
-            } catch (e) { 
-                console.error(e);
-                status.innerText = "⚠️ 동기화 실패 (주소/권한 확인)";
-            }
+            } catch (e) { console.error("데이터 로드 실패:", e); }
         }
 
         function renderCalendar() {
