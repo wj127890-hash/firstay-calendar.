@@ -8,8 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f9fafb; margin: 0; touch-action: manipulation; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f9fafb; margin: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .checkout-badge { font-size: 8px; font-weight: 900; margin-top: 2px; }
+        /* 저장 중 로딩 애니메이션 */
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -21,40 +24,46 @@
                 <button onclick="changeMonth(1)" class="p-2"><i class="fas fa-chevron-right text-2xl"></i></button>
             </div>
             <button onclick="init()" class="mt-4 bg-white/20 px-4 py-1.5 rounded-full text-[11px] font-bold border border-white/30 active:scale-95 transition-all">
-                <i class="fas fa-sync-alt mr-1"></i> Firstay 
+                <i class="fas fa-sync-alt mr-1"></i> 데이터 새로고침
             </button>
         </div>
-        <div class="p-6"><div id="calendar-grid" class="grid grid-cols-7 gap-3"></div></div>
+
+        <div class="p-6">
+            <div id="calendar-grid" class="grid grid-cols-7 gap-3"></div>
+        </div>
+
         <div id="memo-modal" class="fixed inset-0 bg-black/70 hidden flex items-end z-50">
-            <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl">
+            <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl transition-transform duration-300">
                 <div class="flex justify-between items-center mb-6">
                     <h3 id="memo-date" class="text-2xl font-bold text-gray-800">날짜 메모</h3>
-                    <button onclick="closeModal()" class="text-3xl text-gray-400">&times;</button>
+                    <button onclick="closeModal()" class="text-3xl text-gray-400 p-2">&times;</button>
                 </div>
-                <textarea id="memo-input" class="w-full h-48 p-5 border-2 border-orange-100 rounded-[25px] outline-none focus:border-orange-500 text-lg"></textarea>
-                <button id="save-btn" onclick="saveMemo()" class="w-full bg-orange-600 text-white font-black py-5 rounded-[25px] mt-6 text-xl shadow-lg">저장하기</button>
+                <textarea id="memo-input" class="w-full h-48 p-5 border-2 border-orange-100 rounded-[25px] outline-none focus:border-orange-500 text-lg" placeholder="내용을 입력하세요..."></textarea>
+                <button id="save-btn" onclick="saveMemo()" class="w-full bg-orange-600 text-white font-black py-5 rounded-[25px] mt-6 text-xl shadow-lg active:bg-orange-700">저장하기</button>
             </div>
         </div>
     </div>
+
     <script>
-        // ⚠️ 1단계에서 복사한 '새 웹 앱 URL'을 여기에 꼭 넣으세요!
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw3tO_-YhdCQfaKiKS7qw2G7QPFyAeP8EPzd-BNEEOQitjgrXj3FvXrSpEqlr8Dzxql_w/exec";
+        
         let currentMonth = new Date();
         let checkoutDates = [];
         let allMemos = {};
 
         async function init() {
-            renderCalendar(); 
+            const timestamp = Date.now();
             try {
-                const timestamp = Date.now();
+                // 메모 가져오기
                 const memoRes = await fetch(`${WEB_APP_URL}?t=${timestamp}`);
                 allMemos = await memoRes.json();
                 
+                // 에어비앤비 일정 가져오기
                 const calRes = await fetch('/api/calendar?t=' + timestamp);
                 checkoutDates = await calRes.json();
                 
-                renderCalendar(); 
-            } catch (e) { console.error("데이터 로드 실패:", e); }
+                renderCalendar();
+            } catch (e) { console.error("연동 실패:", e); renderCalendar(); }
         }
 
         function renderCalendar() {
@@ -64,16 +73,27 @@
             const year = currentMonth.getFullYear();
             const month = currentMonth.getMonth();
             title.innerText = `${year}년 ${month + 1}월`;
+            
             const firstDay = new Date(year, month, 1).getDay();
             const lastDate = new Date(year, month + 1, 0).getDate();
+
             for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
             for (let d = 1; d <= lastDate; d++) {
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const isCheckout = checkoutDates.includes(dateStr);
                 const memo = allMemos[dateStr];
+                
                 const dayEl = document.createElement('div');
-                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer transition-all ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700'}`;
-                dayEl.innerHTML = `<div class="flex flex-col items-center"><span>${d}</span>${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}${memo ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}</div>`;
+                dayEl.className = `relative h-16 flex items-center justify-center rounded-2xl shadow-sm text-lg font-bold cursor-pointer transition-all ${isCheckout ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 active:bg-gray-100'}`;
+                
+                dayEl.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span>${d}</span>
+                        ${isCheckout ? '<span class="checkout-badge">CHECKOUT</span>' : ''}
+                        ${memo && memo.trim() !== "" ? '<div class="w-1.5 h-1.5 bg-orange-300 rounded-full mt-0.5"></div>' : ''}
+                    </div>
+                `;
                 dayEl.onclick = () => openModal(dateStr);
                 grid.appendChild(dayEl);
             }
@@ -91,34 +111,41 @@
         async function saveMemo() {
             const content = document.getElementById('memo-input').value;
             const btn = document.getElementById('save-btn');
-            btn.innerText = "데이터 저장 중..."; btn.disabled = true;
+            
+            // 버튼 상태 변경
+            btn.innerHTML = `<span class="spinner"></span> 저장 중...`;
+            btn.disabled = true;
+
             try {
-                // 앱 내부 메모 주머니에 먼저 저장해서 화면 유지
-                allMemos[selectedDate] = content;
-                renderCalendar();
-                
-                // 구글 시트로 전송 (no-cors 모드)
+                // 1. 구글 시트로 전송 (응답을 기다리지 않는 no-cors 방식이지만 비동기로 실행)
                 await fetch(WEB_APP_URL, { 
                     method: 'POST', 
                     mode: 'no-cors', 
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ date: selectedDate, content: content }) 
                 });
 
-                // 성공 메시지 후 닫기
+                // 2. 전송 명령 후 즉시 앱 내부 데이터 업데이트 (모바일 화면에 바로 반영하기 위함)
+                allMemos[selectedDate] = content;
+                
+                // 3. 약간의 지연 시간을 주어 서버 처리를 기다린 후 화면 갱신 및 닫기
                 setTimeout(() => {
+                    renderCalendar();
                     closeModal();
-                    btn.innerText = "저장하기";
+                    btn.innerHTML = "저장하기";
                     btn.disabled = false;
-                }, 500);
+                }, 800);
+
             } catch (e) {
-                alert("저장 실패");
+                alert("저장 오류가 발생했습니다. 다시 시도해 주세요.");
+                btn.innerHTML = "저장하기";
                 btn.disabled = false;
-                btn.innerText = "저장하기";
             }
         }
 
         function closeModal() { document.getElementById('memo-modal').classList.add('hidden'); }
         function changeMonth(diff) { currentMonth.setMonth(currentMonth.getMonth() + diff); init(); }
+
         init();
     </script>
 </body>
