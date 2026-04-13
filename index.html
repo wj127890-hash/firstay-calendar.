@@ -10,7 +10,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f9fafb; margin: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .checkout-badge { font-size: 8px; font-weight: 900; margin-top: 2px; }
-        /* 저장 중 로딩 애니메이션 */
         .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -33,7 +32,7 @@
         </div>
 
         <div id="memo-modal" class="fixed inset-0 bg-black/70 hidden flex items-end z-50">
-            <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl transition-transform duration-300">
+            <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
                     <h3 id="memo-date" class="text-2xl font-bold text-gray-800">날짜 메모</h3>
                     <button onclick="closeModal()" class="text-3xl text-gray-400 p-2">&times;</button>
@@ -45,6 +44,7 @@
     </div>
 
     <script>
+        // 릴리님이 주신 최신 링크로 적용 완료!
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw3tO_-YhdCQfaKiKS7qw2G7QPFyAeP8EPzd-BNEEOQitjgrXj3FvXrSpEqlr8Dzxql_w/exec";
         
         let currentMonth = new Date();
@@ -54,11 +54,9 @@
         async function init() {
             const timestamp = Date.now();
             try {
-                // 메모 가져오기
                 const memoRes = await fetch(`${WEB_APP_URL}?t=${timestamp}`);
                 allMemos = await memoRes.json();
                 
-                // 에어비앤비 일정 가져오기
                 const calRes = await fetch('/api/calendar?t=' + timestamp);
                 checkoutDates = await calRes.json();
                 
@@ -112,23 +110,23 @@
             const content = document.getElementById('memo-input').value;
             const btn = document.getElementById('save-btn');
             
-            // 버튼 상태 변경
             btn.innerHTML = `<span class="spinner"></span> 저장 중...`;
             btn.disabled = true;
 
             try {
-                // 1. 구글 시트로 전송 (응답을 기다리지 않는 no-cors 방식이지만 비동기로 실행)
+                // [핵심] 날짜 앞에 ' 를 붙여 구글이 강제로 일반 텍스트로 저장하게 함
+                const forcedTextDate = "'" + selectedDate; 
+
                 await fetch(WEB_APP_URL, { 
                     method: 'POST', 
                     mode: 'no-cors', 
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ date: selectedDate, content: content }) 
+                    body: JSON.stringify({ date: forcedTextDate, content: content }) 
                 });
 
-                // 2. 전송 명령 후 즉시 앱 내부 데이터 업데이트 (모바일 화면에 바로 반영하기 위함)
+                // 즉시 화면 반영
                 allMemos[selectedDate] = content;
                 
-                // 3. 약간의 지연 시간을 주어 서버 처리를 기다린 후 화면 갱신 및 닫기
                 setTimeout(() => {
                     renderCalendar();
                     closeModal();
@@ -137,7 +135,7 @@
                 }, 800);
 
             } catch (e) {
-                alert("저장 오류가 발생했습니다. 다시 시도해 주세요.");
+                alert("저장 오류 발생");
                 btn.innerHTML = "저장하기";
                 btn.disabled = false;
             }
